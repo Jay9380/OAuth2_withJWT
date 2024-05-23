@@ -14,6 +14,10 @@ spring:
     username: root
     password: 1234
 
+  jwt:
+    secret: vmfhaltmskdlstkfkdgodyroqkfwkdbalroqkfwkdbalaaaaaaaaaaaaaaaabbbbb
+    expiration: 86400000 # 1 day in milliseconds
+
   mvc:
     view:
       prefix: /templates/

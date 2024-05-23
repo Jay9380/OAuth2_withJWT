@@ -2,14 +2,24 @@ package com.example.oauth2_test.config;
 
 
 import com.example.oauth2_test.config.oauth.PrincipleOauth2UserService;
+import com.example.oauth2_test.handler.PrincipalSuccessHandler;
+import com.example.oauth2_test.jwt.JWTUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+
+import java.util.Collections;
 
 
 /*
@@ -32,14 +42,45 @@ public class SecurityConfig  {
     @Autowired
     private PrincipleOauth2UserService principleOauth2UserService;
 
+    @Autowired
+    private PrincipalSuccessHandler principalSuccessHandler;
+
+    @Autowired
+    private JWTUtil jwtUtil;
+
+
     //해당 메서드의 리턴되는 오브젝트를 IoC로 등록해준다.
 //    @Bean
 //    public BCryptPasswordEncoder encodePwd() {
 //        return new BCryptPasswordEncoder();
 //    }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+
+        return configuration.getAuthenticationManager();
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        http
+                .cors(corsCustomizer -> corsCustomizer.configurationSource(new CorsConfigurationSource() {
+
+                    @Override
+                    public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
+                        CorsConfiguration configuration = new CorsConfiguration();
+                        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000")); //프론트의 주소
+                        configuration.setAllowedMethods(Collections.singletonList("*"));//모든 요청 허용
+                        configuration.setAllowCredentials(true);
+                        configuration.setAllowedHeaders(Collections.singletonList("*"));
+                        configuration.setMaxAge(3600L);
+
+                        configuration.setExposedHeaders(Collections.singletonList("Set-Cookie"));
+                        configuration.setExposedHeaders(Collections.singletonList("Authorization"));
+
+                        return configuration;
+                    }
+                }));
 
         // 인가(접근권한) 설정
         http.authorizeHttpRequests().requestMatchers("/user/**").authenticated() //user라는 url로 들어오면 authenticated 인증 필요
@@ -59,8 +100,23 @@ public class SecurityConfig  {
 
         //                .usernameParameter("ㅇㅇ") //PrincipalDetailsService 에서와 String 일치 하지 않으면 여기서 설정
 
-        // 사이트 위변조 요청 방지
-        http.csrf().disable();
+
+        //csrf disable - 사이트 위변조 방지
+        http
+                .csrf((auth) -> auth.disable());
+
+        //From 로그인 방식 disable
+        http
+                .formLogin((auth) -> auth.disable());
+
+        //HTTP Basic 인증 방식 disable
+        http
+                .httpBasic((auth) -> auth.disable());
+
+        //JWT 토큰을 이용하기 때문에 session을 사용하지 않기 때문에 STATELESS
+        http
+                .sessionManagement((session) -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
 //        // 로그인 설정
 //        http.formLogin()
